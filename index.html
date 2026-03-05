@@ -433,19 +433,19 @@
       </form>
     </section>
   </div>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script></script>
   <script>
     let counter = 0;
     let currentUserId = null;
-    let currentUserProfile = null; // { id, email, username, avatar }
+    let currentUserProfile = null;
     let socket = null;
-    let allMessages = []; // { id, content, senderId, receiverId }
-    let friends = []; // from /api/friends
-    let userProfiles = {}; // cache { userId: { id, email, username, avatar } }
-    let pendingRequests = []; // from /api/friends/pending
-    let onlineStatus = {}; // { userId: boolean }
+    let allMessages = [];
+    let friends = [];
+    let userProfiles = {};
+    let pendingRequests = [];
+    let onlineStatus = {};
     let selectedPeerId = null;
-    let selectedPeerProfile = null; // { id, email, username, avatar }
+    let selectedPeerProfile = null;
 
     const form = document.getElementById('form');
     const input = document.getElementById('input');
@@ -477,35 +477,18 @@
         retries: 3,
       });
 
-      socket.on('chat message', (message, serverOffset) => {
-        let content;
-        let senderId;
-        let receiverId = null;
-
-        if (typeof message === 'string') {
-          content = message;
-          senderId = null;
-        } else {
-          content = message.content;
-          senderId = message.senderId;
-          receiverId = message.receiverId != null ? message.receiverId : null;
-        }
-
+      socket.on('private message', (message) => {
         const stored = {
-          id: serverOffset,
-          content,
-          senderId,
-          receiverId
+          id: Date.now(),
+          content: message.text || message.content,
+          senderId: message.from,
+          receiverId: currentUserId
         };
 
         allMessages.push(stored);
 
         if (selectedPeerId != null && isMessageInCurrentConversation(stored)) {
           appendMessageElement(stored);
-        }
-
-        if (socket && socket.auth) {
-          socket.auth.serverOffset = serverOffset;
         }
       });
     }
@@ -528,54 +511,45 @@
 
     function appendMessageElement(message) {
       const item = document.createElement('li');
-      item.className = 'message';
-      
-      const isSent = message.senderId === currentUserId;
-      
-      if (isSent) {
-        item.classList.add('sent');
-      } else {
-        item.classList.add('received');
-      }
-      
-      // Avatar
-      const avatar = document.createElement('img');
-      avatar.className = 'avatar-small';
-      avatar.onerror = () => { avatar.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E'; };
-      
-      if (isSent && currentUserProfile) {
-        avatar.src = currentUserProfile.avatar;
-        avatar.title = currentUserProfile.username;
-      } else if (!isSent && selectedPeerProfile) {
-        avatar.src = selectedPeerProfile.avatar;
-        avatar.title = selectedPeerProfile.username;
-      } else {
-        avatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=User${message.senderId || '?'}`;
-      }
-      
-      // Message content wrapper
-      const bubbleWrapper = document.createElement('div');
-      
-      const username = document.createElement('small');
-      if (isSent && currentUserProfile) {
-        username.textContent = currentUserProfile.username;
-      } else if (!isSent && selectedPeerProfile) {
-        username.textContent = selectedPeerProfile.username;
-      } else {
-        username.textContent = `User ${message.senderId || '?'}`;
-      }
-      
-      const content = document.createElement('div');
-      content.textContent = message.content;
-      
-      bubbleWrapper.appendChild(username);
-      bubbleWrapper.appendChild(content);
-      
-      item.appendChild(avatar);
-      item.appendChild(bubbleWrapper);
-      
+      item.className = message.senderId === currentUserId ? 'message-sent' : 'message-received';
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'msg';
+      msgDiv.textContent = message.content;
+
+      item.appendChild(msgDiv);
       messagesEl.appendChild(item);
       messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    async function loadMessageHistory(userId, friendId) {
+      if (!userId || !friendId) return;
+
+      try {
+        const response = await fetch(`/api/messages?userId=${userId}&friendId=${friendId}`);
+        if (!response.ok) {
+          console.log('No message history available');
+          return;
+        }
+
+        const messages = await response.json();
+        if (Array.isArray(messages)) {
+          messages.forEach(msg => {
+            const stored = {
+              id: msg.id,
+              content: msg.content,
+              senderId: msg.sender_id || msg.senderId,
+              receiverId: msg.receiver_id || msg.receiverId
+            };
+            if (!allMessages.find(m => m.id === stored.id)) {
+              allMessages.push(stored);
+            }
+          });
+          renderMessagesForCurrentConversation();
+        }
+      } catch (err) {
+        console.log('Error loading message history:', err);
+      }
     }
 
     function renderMessagesForCurrentConversation() {
@@ -584,7 +558,19 @@
 
       const relevant = allMessages.filter(isMessageInCurrentConversation);
       relevant.sort((a, b) => a.id - b.id);
-      relevant.forEach(appendMessageElement);
+      relevant.forEach(msg => {
+        const item = document.createElement('li');
+        item.className = msg.senderId === currentUserId ? 'message-sent' : 'message-received';
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'msg';
+        msgDiv.textContent = msg.content;
+
+        item.appendChild(msgDiv);
+        messagesEl.appendChild(item);
+      });
+
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
     async function loadFriends() {
@@ -596,8 +582,7 @@
           return;
         }
         friends = await response.json();
-        
-        // Fetch profiles for all friends and cache them
+
         for (const friend of friends) {
           if (!userProfiles[friend.id]) {
             try {
@@ -610,7 +595,7 @@
             }
           }
         }
-        
+
         await loadOnlineStatus();
         renderFriendList();
       } catch (err) {
@@ -627,8 +612,7 @@
           return;
         }
         pendingRequests = await response.json();
-        
-        // Fetch profiles for all pending requests and cache them
+
         for (const request of pendingRequests) {
           if (!userProfiles[request.id]) {
             try {
@@ -641,7 +625,7 @@
             }
           }
         }
-        
+
         renderPendingRequests();
       } catch (err) {
         console.error('Error loading pending requests:', err);
@@ -653,7 +637,7 @@
         onlineStatus = {};
         return;
       }
-      
+
       const ids = friends.map((f) => f.id).join(',');
       if (!ids) {
         onlineStatus = {};
@@ -675,52 +659,44 @@
       friendsEl.innerHTML = '';
       friends.forEach((friend) => {
         const li = document.createElement('li');
-        li.dataset.friendId = String(friend.id);
-        
+        li.className = 'friend-item';
         if (friend.id === selectedPeerId) {
           li.classList.add('active');
         }
 
-        const friendItem = document.createElement('div');
-        friendItem.className = 'friend-item';
-
-        // Avatar
-        const avatar = document.createElement('img');
-        avatar.className = 'avatar-small';
         const profile = userProfiles[friend.id];
-        if (profile && profile.avatar) {
-          avatar.src = profile.avatar;
-        } else {
-          avatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=User${friend.id}`;
-        }
-        avatar.onerror = () => { avatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=User${friend.id}`; };
+        const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=User${friend.id}`;
+        const username = profile?.username || `User ${friend.id}`;
 
-        // Online dot
-        const dot = document.createElement('span');
-        dot.className = 'online-dot';
-        if (onlineStatus[String(friend.id)] !== true) {
-          dot.classList.add('offline');
-        }
+        const avatar = document.createElement('div');
+        avatar.className = 'friend-avatar';
+        avatar.style.backgroundImage = `url('${avatarUrl}')`;
 
-        // Username
-        const text = document.createElement('span');
-        if (profile && profile.username) {
-          text.textContent = profile.username;
-        } else {
-          text.textContent = `User ${friend.id}`;
-        }
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'friend-content';
 
-        friendItem.appendChild(avatar);
-        friendItem.appendChild(dot);
-        friendItem.appendChild(text);
-        li.appendChild(friendItem);
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'friend-info';
 
-        li.addEventListener('click', () => {
+        const nameEl = document.createElement('h4');
+        nameEl.textContent = username;
+
+        const statusEl = document.createElement('p');
+        statusEl.textContent = 'Online';
+
+        infoDiv.appendChild(nameEl);
+        infoDiv.appendChild(statusEl);
+        contentDiv.appendChild(infoDiv);
+
+        li.appendChild(avatar);
+        li.appendChild(contentDiv);
+
+        li.addEventListener('click', async () => {
           selectedPeerId = friend.id;
-          selectedPeerProfile = userProfiles[friend.id] || { id: friend.id, username: `User ${friend.id}`, avatar: `https://api.dicebear.com/7.x/initials/svg?seed=User${friend.id}` };
+          selectedPeerProfile = profile || { id: friend.id, username, avatar: avatarUrl };
           renderFriendList();
           updateChatTitle();
-          renderMessagesForCurrentConversation();
+          await loadMessageHistory(currentUserId, friend.id);
         });
 
         friendsEl.appendChild(li);
@@ -739,32 +715,22 @@
 
       pendingRequests.forEach((request) => {
         const li = document.createElement('li');
-
-        const friendItem = document.createElement('div');
-        friendItem.className = 'friend-item';
-        
-        // Avatar
-        const avatar = document.createElement('img');
-        avatar.className = 'avatar-small';
         const profile = userProfiles[request.id];
-        if (profile && profile.avatar) {
-          avatar.src = profile.avatar;
-        } else {
-          avatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=User${request.id}`;
-        }
-        avatar.onerror = () => { avatar.src = `https://api.dicebear.com/7.x/initials/svg?seed=User${request.id}`; };
-        
-        // Username
-        const text = document.createElement('span');
-        if (profile && profile.username) {
-          text.textContent = profile.username;
-        } else {
-          text.textContent = `User ${request.id}`;
-        }
-        
-        friendItem.appendChild(avatar);
-        friendItem.appendChild(text);
-        li.appendChild(friendItem);
+        const username = profile?.username || `User ${request.id}`;
+        const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=User${request.id}`;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'friend-content';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'friend-info';
+
+        const nameEl = document.createElement('h4');
+        nameEl.textContent = username;
+
+        infoDiv.appendChild(nameEl);
+        contentDiv.appendChild(infoDiv);
+        li.appendChild(contentDiv);
 
         const btn = document.createElement('button');
         btn.textContent = 'Accept';
@@ -807,7 +773,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ userId: currentUserId, friendId })
+          body: JSON.stringify({ userId: currentUserId, friendId})
         });
 
         if (response.ok) {
@@ -828,8 +794,7 @@
       if (!isNaN(numId) && numId > 0) {
         return numId;
       }
-      
-      // Try to resolve as username
+
       try {
         const response = await fetch(`/api/users/by-username/${encodeURIComponent(input)}`);
         if (response.ok) {
@@ -839,7 +804,7 @@
       } catch (err) {
         console.error('Error resolving username:', err);
       }
-      
+
       return null;
     }
 
@@ -847,9 +812,9 @@
       if (selectedPeerId == null) {
         chatTitle.textContent = 'Select a friend';
       } else if (selectedPeerProfile && selectedPeerProfile.username) {
-        chatTitle.textContent = `Chat with ${selectedPeerProfile.username}`;
+        chatTitle.textContent = selectedPeerProfile.username;
       } else {
-        chatTitle.textContent = `Chat with User ${selectedPeerId}`;
+        chatTitle.textContent = `User ${selectedPeerId}`;
       }
     }
 
@@ -882,8 +847,8 @@
 
         const data = await response.json();
         currentUserId = data.id;
-        currentUserProfile = data; // Store the full profile
-        userProfiles[data.id] = data; // Cache it
+        currentUserProfile = data;
+        userProfiles[data.id] = data;
         loginStatus.textContent = `Logged in as ${data.username} (id: ${data.id})`;
 
         connectSocket();
@@ -926,8 +891,8 @@
 
         const data = await response.json();
         currentUserId = data.id;
-        currentUserProfile = data; // Store the full profile
-        userProfiles[data.id] = data; // Cache it
+        currentUserProfile = data;
+        userProfiles[data.id] = data;
         loginStatus.textContent = `Logged in as ${data.username} (id: ${data.id})`;
 
         connectSocket();
@@ -946,18 +911,18 @@
         alert('Please enter a user ID or username');
         return;
       }
-      
+
       const friendId = await resolveFriendIdFromInput(input);
       if (!friendId) {
         alert('User not found');
         return;
       }
-      
+
       if (friendId === currentUserId) {
         alert('You cannot add yourself');
         return;
       }
-      
+
       await sendFriendRequest(friendId);
     });
 
@@ -972,7 +937,7 @@
       if (!socket || !currentUserId || selectedPeerId == null) {
         return;
       }
-      if (!input.value) {
+      if (!input.value.trim()) {
         return;
       }
 
@@ -994,7 +959,7 @@
         appendMessageElement(localMessage);
       }
 
-      socket.emit('chat message', payload, clientOffset);
+      socket.emit('private message', { to: selectedPeerId, text: input.value });
       input.value = '';
     });
   </script>
