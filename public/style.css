@@ -1,0 +1,141 @@
+:root {
+  --bg: #f3f4f6;
+  --card: #ffffff;
+  --line: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #2563eb;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: "Segoe UI", "PingFang SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  height: 100%;
+}
+
+.auth-card, .chat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.auth-card {
+  width: min(460px, 100%);
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.auth-card h1 { margin-top: 0; }
+
+#auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+input, button {
+  font: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  border: none;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+#auth-status { min-height: 20px; color: #b91c1c; }
+
+.chat-card {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: calc(100% - 40px);
+  overflow: hidden;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--muted); }
+.panel ul { list-style: none; margin: 0; padding: 0; }
+.panel li {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.panel li:hover { background: #f9fafb; }
+.panel li.active { border-color: var(--accent); }
+.grow { flex: 1; overflow: auto; }
+
+.conversation {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.conversation header {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+#messages {
+  list-style: none;
+  margin: 0;
+  padding: 12px;
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#messages li { display: flex; }
+#messages li.me { justify-content: flex-end; }
+.bubble {
+  max-width: 70%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f3f4f6;
+}
+#messages li.me .bubble { background: #dbeafe; }
+
+#message-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+#message-input { flex: 1; }
+
+.hidden { display: none; }
+
+@media (max-width: 860px) {
+  .chat-card { grid-template-columns: 1fr; }
+  .sidebar { max-height: 40%; border-right: none; border-bottom: 1px solid var(--line); }
+}

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Example</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="layout">
+    <section class="auth-card" id="auth-card">
+      <h1>Chat Example</h1>
+      <form id="auth-form">
+        <input id="email" type="email" placeholder="Email" required>
+        <input id="username" type="text" placeholder="Username (register only)">
+        <input id="password" type="password" placeholder="Password" required>
+        <div class="actions">
+          <button type="submit">Login</button>
+          <button type="button" id="register-btn">Register</button>
+        </div>
+        <p id="auth-status"></p>
+      </form>
+    </section>
+
+    <section class="chat-card hidden" id="chat-card">
+      <aside class="sidebar">
+        <div class="panel">
+          <h3>好友请求</h3>
+          <ul id="pending-list"></ul>
+        </div>
+        <div class="panel add-friend">
+          <h3>添加好友</h3>
+          <input id="friend-input" type="text" placeholder="输入 ID 或用户名">
+          <button id="friend-btn">发送请求</button>
+        </div>
+        <div class="panel grow">
+          <h3>好友列表</h3>
+          <ul id="friend-list"></ul>
+        </div>
+      </aside>
+
+      <section class="conversation">
+        <header>
+          <h2 id="conversation-title">请选择好友</h2>
+        </header>
+        <ul id="messages"></ul>
+        <form id="message-form">
+          <input id="message-input" type="text" placeholder="输入消息" autocomplete="off">
+          <button type="submit">发送</button>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

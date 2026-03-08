@@ -1,9 +1,25 @@
-# Socket.IO chat example
+# Chat Example (Refactored)
 
-This is the source code for a very simple chat example used for the [Tutorial](https://socket.io/docs/v4/tutorial/introduction) guide of the Socket.IO website.
+## Run locally
 
-You can run this example directly in your browser on:
+```bash
+npm install
+npm start
+```
 
-- [CodeSandbox](https://codesandbox.io/p/sandbox/github/socketio/chat-example?file=index.js)
-- [StackBlitz](https://stackblitz.com/github/socketio/chat-example?file=index.js)
-- [Repl.it](https://repl.it/github/socketio/chat-example)
+Server starts at `http://localhost:8080` by default.
+
+## Project structure
+
+- `src/server.js`: Express API + Socket.IO server
+- `src/db.js`: SQLite schema and conversation helper
+- `public/index.html`: UI shell
+- `public/style.css`: styles
+- `public/app.js`: frontend logic
+
+## Deployment (Railway)
+
+1. Push latest code to GitHub.
+2. In Railway project, trigger redeploy from latest commit.
+3. Ensure `PORT` is provided by Railway (already handled in code).
+4. Optional health check path: `/health`.
